@@ -1,0 +1,44 @@
+name: termofeed-local
+
+services:
+  back:
+    build:
+      context: ../termofeed-back
+      additional_contexts:
+        # O Dockerfile do back usa Go 1.24, mas o go.mod exige 1.27.2.
+        # Pode sair daqui quando o Dockerfile for atualizado.
+        "golang:1.24-alpine": docker-image://golang:1.27.2-alpine
+    image: termofeed-back:local
+    environment:
+      PORT: "8080"
+      PUBLIC_BASE_URL: http://localhost:${FRONT_PORT:-5173}
+      ALLOWED_ORIGINS: http://localhost:${FRONT_PORT:-5173}
+      TRUSTED_PROXY: "true"
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    healthcheck:
+      # A imagem distroless não tem shell nem wget: o próprio binário faz a checagem.
+      test: ["CMD", "/bin/termofeed", "healthcheck"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 2s
+
+  front:
+    build:
+      context: ../termofeed-front
+    image: termofeed-front:local
+    ports:
+      - "${FRONT_PORT:-5173}:80"
+    environment:
+      # ":80" mantém o Caddy em HTTP. Com "localhost" ele redireciona para HTTPS.
+      DOMAIN: ":80"
+      BACK_HOST: back
+    depends_on:
+      back:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:80/ || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 2s
