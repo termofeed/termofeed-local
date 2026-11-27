@@ -4,6 +4,9 @@ services:
   back:
     build:
       context: ../termofeed-back
+      # O build usa a rede do host: na rede bridge, o DNS do WSL2 (10.255.255.254)
+      # não responde e o "go mod download" falha por timeout.
+      network: host
       additional_contexts:
         # O Dockerfile do back usa Go 1.24, mas o go.mod exige 1.27.2.
         # Pode sair daqui quando o Dockerfile for atualizado.
@@ -26,6 +29,7 @@ services:
   front:
     build:
       context: ../termofeed-front
+      network: host  # mesmo motivo do back: DNS do WSL2 no "npm ci"
     image: termofeed-front:local
     ports:
       - "${FRONT_PORT:-5173}:80"
